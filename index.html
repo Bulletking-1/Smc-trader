@@ -1,0 +1,401 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SMC Multi‑Timeframe Trader — CHOCH · OB · FVG (H4/H1/M30)</title>
+  <style>
+    :root{
+      --bg:#0b0e13;--panel:#111623;--panel2:#0f1420;--text:#e6ecff;--muted:#9fb0d6;--accent:#6da8ff;--buy:#3bd671;--sell:#ff6b6b;--warn:#ffb957;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:linear-gradient(120deg,var(--bg),#0a0e18 60%);color:var(--text);font:14px/1.4 system-ui,Segoe UI,Roboto,Helvetica,Arial}
+    header{position:sticky;top:0;background:linear-gradient(120deg,var(--panel),var(--panel2));border-bottom:1px solid #1d2640;z-index:10}
+    .wrap{max-width:1200px;margin:0 auto;padding:18px}
+    h1{margin:0;font-weight:800;letter-spacing:.2px;font-size:20px}
+    .subtitle{color:var(--muted);font-size:13px}
+    .grid{display:grid;gap:16px}
+    .g-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+    .card{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid #1b2340;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+    .card h3{margin:0 0 8px;font-size:15px}
+    .card .body{padding:14px}
+    label{display:block;margin:8px 0 6px;color:var(--muted);font-weight:600}
+    input[type=file],select,button,textarea{width:100%;padding:10px 12px;border-radius:12px;border:1px solid #263154;background:#0d1320;color:#text}
+    button{background:linear-gradient(120deg,#1c2c55,#20356a);cursor:pointer;font-weight:700}
+    button:hover{filter:brightness(1.1)}
+    .row{display:flex;gap:10px;flex-wrap:wrap}
+    .row > *{flex:1 1 220px}
+    .pill{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border-radius:999px;border:1px solid #253158;background:#0e1422;color:var(--muted);font-size:12px}
+    .pill .dot{width:8px;height:8px;border-radius:50%}
+    .dot.buy{background:var(--buy)}.dot.sell{background:var(--sell)}
+    .tag{display:inline-block;padding:4px 8px;border-radius:8px;background:#0f1422;border:1px solid #222d4b;color:#a7b6df;font-size:12px;margin-right:6px}
+    .table{width:100%;border-collapse:collapse}
+    .table th,.table td{padding:10px;border-bottom:1px solid #1c2442;text-align:left}
+    .table th{color:#9fb0d6;font-size:12px;text-transform:uppercase;letter-spacing:.06em}
+    .badge{padding:3px 8px;border-radius:8px;font-weight:700}
+    .b-buy{background:rgba(59,214,113,.15);color:var(--buy);border:1px solid rgba(59,214,113,.4)}
+    .b-sell{background:rgba(255,107,107,.15);color:var(--sell);border:1px solid rgba(255,107,107,.4)}
+    footer{color:#8496c1;text-align:center;padding:24px}
+    .small{font-size:12px;color:#7f91bd}
+    .note{border-left:3px solid var(--warn);padding:10px;background:#141a2a;border-radius:8px}
+    .center{display:flex;align-items:center;justify-content:center}
+    .chart{height:320px}
+    .muted{color:#99a9d4}
+    .kbd{background:#0c1221;border:1px solid #243054;border-radius:6px;padding:2px 6px}
+  </style>
+  <script src="https://cdn.plot.ly/plotly-2.34.0.min.js"></script>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>SMC Multi‑Timeframe Trader <span class="subtitle">· CHOCH · Order Blocks · FVG · H4/H1/M30 alignment</span></h1>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="card">
+    <div class="body">
+      <div class="row">
+        <div>
+          <label>Upload candles (CSV) — <strong>H4</strong></label>
+          <input id="fileH4" type="file" accept=".csv" />
+        </div>
+        <div>
+          <label>Upload candles (CSV) — <strong>H1</strong></label>
+          <input id="fileH1" type="file" accept=".csv" />
+        </div>
+        <div>
+          <label>Upload candles (CSV) — <strong>M30</strong> (entries)</label>
+          <input id="fileM30" type="file" accept=".csv" />
+        </div>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <div>
+          <label>Risk per trade (%)</label>
+          <input id="riskPct" type="number" min="0" max="5" step="0.1" value="1.0" />
+        </div>
+        <div>
+          <label>Account balance</label>
+          <input id="balance" type="number" min="0" step="0.01" value="1000" />
+        </div>
+        <div>
+          <label>Pip value (quote)</label>
+          <input id="pipValue" type="number" min="0" step="0.0001" value="10" />
+        </div>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <div>
+          <label>Swing sensitivity (fractal left/right)</label>
+          <input id="fractal" type="number" min="1" max="5" step="1" value="2" />
+        </div>
+        <div>
+          <label>Max bars to wait for OB retest</label>
+          <input id="retestBars" type="number" min="1" max="30" step="1" value="8" />
+        </div>
+        <div>
+          <label>RR target (reward:risk)</label>
+          <input id="rr" type="number" min="1" max="10" step="0.5" value="2" />
+        </div>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <button id="runBtn">Run SMC Scanner</button>
+        <button id="resetBtn" style="background:#1a233a">Reset</button>
+        <span class="pill"><span class="dot buy"></span>Bullish · align up</span>
+        <span class="pill"><span class="dot sell"></span>Bearish · align down</span>
+      </div>
+      <p class="small muted" style="margin-top:10px">CSV format: <span class="kbd">time</span>, <span class="kbd">open</span>, <span class="kbd">high</span>, <span class="kbd">low</span>, <span class="kbd">close</span>. Time must be ISO (e.g., 2025‑08‑20T00:00:00Z). One file per timeframe.</p>
+    </div>
+  </div>
+
+  <div class="grid g-3" style="margin-top:16px">
+    <div class="card"><div class="body"><h3>H4</h3><div id="chartH4" class="chart"></div><div id="dirH4" class="small muted"></div></div></div>
+    <div class="card"><div class="body"><h3>H1</h3><div id="chartH1" class="chart"></div><div id="dirH1" class="small muted"></div></div></div>
+    <div class="card"><div class="body"><h3>M30 (entries)</h3><div id="chartM30" class="chart"></div><div id="dirM30" class="small muted"></div></div></div>
+  </div>
+
+  <div class="card" style="margin-top:16px">
+    <div class="body">
+      <h3 style="margin-bottom:6px">Aligned Entry Signals</h3>
+      <div style="margin-bottom:10px">
+        <span class="tag">H4/H1 direction from latest CHOCH</span>
+        <span class="tag">Entry when M30 CHOCH agrees, price retests OB within <span id="retShow">8</span> bars, and an FVG exists</span>
+      </div>
+      <table class="table" id="signalsTable">
+        <thead>
+          <tr>
+            <th>Time (M30)</th>
+            <th>Side</th>
+            <th>Entry</th>
+            <th>SL</th>
+            <th>TP</th>
+            <th>OB Range</th>
+            <th>FVG</th>
+            <th>Size</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <p class="small note" style="margin-top:8px">Educational use only — not financial advice. No live orders are sent. You can connect your own webhook in the code (search “// TODO: webhook”).</p>
+    </div>
+  </div>
+</main>
+
+<footer>
+  Built with ❤️ — Smart Money Concepts (CHOCH · Order Blocks · FVG) multi‑timeframe alignment (H4/H1/M30). Single‑file HTML/JS.
+</footer>
+
+<script>
+function parseCSV(text){
+  const lines = text.trim().split(/\r?\n/);
+  const header = lines[0].split(',').map(s=>s.trim().toLowerCase());
+  const idx = {
+    time: header.indexOf('time'), open: header.indexOf('open'), high: header.indexOf('high'), low: header.indexOf('low'), close: header.indexOf('close')
+  };
+  if(Object.values(idx).some(v=>v===-1)) throw new Error('CSV must have columns: time,open,high,low,close');
+  const rows=[];
+  for(let i=1;i<lines.length;i++){
+    const parts = lines[i].split(',');
+    if(parts.length<header.length) continue;
+    const t = new Date(parts[idx.time]);
+    if(isNaN(t)) continue;
+    rows.push({
+      time: t, ts: t.getTime(),
+      open: +parts[idx.open], high:+parts[idx.high], low:+parts[idx.low], close:+parts[idx.close]
+    });
+  }
+  rows.sort((a,b)=>a.ts-b.ts);
+  return rows;
+}
+
+function swingPoints(data, left=2, right=2){
+  const highs=[], lows=[];
+  for(let i=left;i<data.length-right;i++){
+    let isHigh=true, isLow=true;
+    for(let j=1;j<=left;j++){
+      if(!(data[i].high>data[i-j].high)) isHigh=false;
+      if(!(data[i].low <data[i-j].low )) isLow=false;
+    }
+    for(let j=1;j<=right;j++){
+      if(!(data[i].high>data[i+j].high)) isHigh=false;
+      if(!(data[i].low <data[i+j].low )) isLow=false;
+    }
+    if(isHigh) highs.push({i, ...data[i]});
+    if(isLow ) lows .push({i, ...data[i]});
+  }
+  return {highs,lows};
+}
+
+function detectCHOCH(data, swings){
+  const events=[];
+  let lastHigh = null, lastLow = null;
+  let bias = null;
+  const pivots=[...swings.highs.map(s=>({...s,type:'H'})), ...swings.lows.map(s=>({...s,type:'L'}))].sort((a,b)=>a.i-b.i);
+  for(const p of pivots){
+    if(p.type==='H') lastHigh = p;
+    if(p.type==='L') lastLow  = p;
+    const k = p.i;
+    if(lastHigh && data[k].close>lastHigh.high){
+      if(bias!=='up'){
+        bias='up';
+        events.push({i:k, side:'buy', type:'CHOCH', level:lastHigh.high, candle:data[k]});
+      }
+    }
+    if(lastLow && data[k].close<lastLow.low){
+      if(bias!=='down'){
+        bias='down';
+        events.push({i:k, side:'sell', type:'CHOCH', level:lastLow.low, candle:data[k]});
+      }
+    }
+  }
+  return {events, bias};
+}
+
+function detectFVG(data){
+  const fvg=[];
+  for(let i=2;i<data.length;i++){
+    const a=data[i-2], b=data[i-1], c=data[i];
+    if(b.low> a.high){
+      const top=b.low, bottom=a.high;
+      fvg.push({i:i-1, side:'buy', top, bottom, active:true});
+    }
+    if(b.high< a.low){
+      const top=a.low, bottom=b.high;
+      fvg.push({i:i-1, side:'sell', top, bottom, active:true});
+    }
+  }
+  return fvg;
+}
+
+function findOrderBlocks(data, chochEvents){
+  const obs=[];
+  for(const ev of chochEvents){
+    const k=ev.i;
+    for(let j=k-1;j>=Math.max(0,k-20);j--){
+      const upCandle = data[j].close>data[j].open;
+      const downCandle= data[j].close<data[j].open;
+      if(ev.side==='buy' && downCandle){
+        obs.push({i:j, side:'buy', high:data[j].high, low:data[j].low, origin:k});
+        break;
+      }
+      if(ev.side==='sell' && upCandle){
+        obs.push({i:j, side:'sell', high:data[j].high, low:data[j].low, origin:k});
+        break;
+      }
+    }
+  }
+  return obs;
+}
+
+function sizePosition(balance, riskPct, entry, stop, pipValue=10){
+  const riskAmt = balance * (riskPct/100);
+  const riskPerUnit = Math.abs(entry-stop);
+  if(riskPerUnit<=0) return 0;
+  const units = riskAmt / riskPerUnit;
+  return units;
+}
+
+function drawChart(divId, data, swings, choch, obs, fvgs){
+  if(!data||!data.length){ Plotly.purge(divId); return; }
+  const x=data.map(d=>d.time);
+  const trace={
+    type:'candlestick', x,
+    open:data.map(d=>d.open), high:data.map(d=>d.high), low:data.map(d=>d.low), close:data.map(d=>d.close),
+    name:'Price'
+  };
+  const shapes=[];
+  for(const ob of obs){
+    shapes.push({type:'rect',xref:'x',yref:'y',x0:data[ob.i].time,x1:data[Math.min(ob.i+20,data.length-1)].time,
+      y0:ob.low,y1:ob.high,opacity:0.12, line:{width:1}, fillcolor: ob.side==='buy'?'rgba(59,214,113,.25)':'rgba(255,107,107,.25)',
+      line:{color: ob.side==='buy'?'rgba(59,214,113,.6)':'rgba(255,107,107,.6)'}});
+  }
+  for(const g of fvgs){
+    shapes.push({type:'rect',xref:'x',yref:'y',x0:data[Math.max(0,g.i-1)].time,x1:data[Math.min(g.i+6,data.length-1)].time,
+      y0:g.bottom,y1:g.top,opacity:0.1, fillcolor:g.side==='buy'?'rgba(109,168,255,.25)':'rgba(255,185,87,.25)', line:{color:'rgba(120,140,200,.4)'}});
+  }
+  const mX=[], mY=[], mText=[], mColor=[];
+  for(const ev of choch.events){
+    mX.push(data[ev.i].time); mY.push(data[ev.i].close); mText.push('CHOCH '+ev.side.toUpperCase()); mColor.push(ev.side==='buy'?'#3bd671':'#ff6b6b');
+  }
+  const marks={type:'scatter',mode:'markers+text', x:mX,y:mY, text:mText, textposition:'top center', marker:{size:9,color:mColor}, name:'CHOCH'}
+  const layout={
+    dragmode:'pan', paper_bgcolor:'transparent', plot_bgcolor:'transparent',
+    margin:{l:40,r:10,t:10,b:20}, xaxis:{gridcolor:'#1c2442'}, yaxis:{gridcolor:'#1c2442'}, shapes
+  };
+  Plotly.newPlot(divId,[trace,marks],layout,{displayModeBar:false,responsive:true});
+}
+
+function generateSignals(cfg){
+  const {H4,H1,M30, params} = cfg;
+  if(!H4||!H1||!M30) return [];
+  const dirH4 = H4.choch.bias; const dirH1 = H1.choch.bias;
+  const agree = (side)=> dirH4===side && dirH1===side;
+  const signals=[];
+  for(const ev of M30.choch.events){
+    if(!agree(ev.side)) continue;
+    const ob = [...M30.obs].reverse().find(o=>o.side===ev.side && o.i<=ev.i);
+    if(!ob) continue;
+    const fvg = M30.fvgs.slice(Math.max(0,ev.i-20), ev.i+1).reverse().find(g=>g.side===ev.side);
+    if(!fvg) continue;
+    const maxAhead = Math.min(M30.data.length-1, ev.i + params.retestBars);
+    let touchIdx = -1;
+    for(let k=ev.i+1; k<=maxAhead; k++){
+      const c = M30.data[k];
+      if(c.low <= ob.high && c.high >= ob.low){ touchIdx=k; break; }
+    }
+    if(touchIdx<0) continue;
+    const entry = M30.data[touchIdx].close;
+    const sl = ev.side==='buy' ? ob.low : ob.high;
+    const risk = Math.abs(entry - sl);
+    if(risk<=0) continue;
+    const tp = ev.side==='buy' ? entry + params.rr * risk : entry - params.rr * risk;
+    const size = sizePosition(params.balance, params.riskPct, entry, sl, params.pipValue);
+    signals.push({time:M30.data[touchIdx].time, side:ev.side, entry, sl, tp, ob:`${ob.low.toFixed(5)}–${ob.high.toFixed(5)}`, fvg:`${fvg.bottom.toFixed(5)}–${fvg.top.toFixed(5)}`, size});
+  }
+  return {signals, dirH4, dirH1};
+}
+
+const state={H4:null,H1:null,M30:null};
+
+function loadCSV(file){
+  return new Promise((resolve,reject)=>{
+    const r=new FileReader();
+    r.onload=()=>{ try{ resolve(parseCSV(r.result)); }catch(e){ reject(e);} };
+    r.onerror=()=>reject(r.error);
+    r.readAsText(file);
+  });
+}
+
+function analyzeTF(rows, label){
+  const leftRight = +document.getElementById('fractal').value;
+  const swings = swingPoints(rows,leftRight,leftRight);
+  const choch = detectCHOCH(rows,swings);
+  const fvgs = detectFVG(rows);
+  const obs  = findOrderBlocks(rows, choch.events);
+  return {data:rows, swings, choch, fvgs, obs, label};
+}
+
+function renderAll(){
+  if(state.H4) drawChart('chartH4', state.H4.data, state.H4.swings, state.H4.choch, state.H4.obs, state.H4.fvgs);
+  if(state.H1) drawChart('chartH1', state.H1.data, state.H1.swings, state.H1.choch, state.H1.obs, state.H1.fvgs);
+  if(state.M30) drawChart('chartM30', state.M30.data, state.M30.swings, state.M30.choch, state.M30.obs, state.M30.fvgs);
+  document.getElementById('dirH4').textContent = state.H4?`Bias: ${state.H4.choch.bias||'n/a'}`:'';
+  document.getElementById('dirH1').textContent = state.H1?`Bias: ${state.H1.choch.bias||'n/a'}`:'';
+  document.getElementById('dirM30').textContent = state.M30?`Last CHOCHs: ${state.M30.choch.events.length}`:'';
+}
+
+async function run(){
+  const params={
+    riskPct: +document.getElementById('riskPct').value,
+    balance: +document.getElementById('balance').value,
+    pipValue:+document.getElementById('pipValue').value,
+    rr:+document.getElementById('rr').value,
+    retestBars:+document.getElementById('retestBars').value,
+  };
+  document.getElementById('retShow').textContent=params.retestBars;
+  const res = generateSignals({H4:state.H4,H1:state.H1,M30:state.M30, params});
+  const tbody = document.querySelector('#signalsTable tbody');
+  tbody.innerHTML='';
+  if(!res || !res.signals || res.signals.length===0){
+    const tr=document.createElement('tr');
+    const td=document.createElement('td');
+    td.colSpan=8; td.className='muted';
+    td.textContent='No aligned signals found with current settings and data.';
+    tr.appendChild(td); tbody.appendChild(tr);
+    return;
+  }
+  for(const s of res.signals){
+    const tr=document.createElement('tr');
+    const td=(v)=>{const x=document.createElement('td'); x.textContent=v; return x;};
+    tr.appendChild(td(new Date(s.time).toISOString()));
+    const side=document.createElement('td'); side.innerHTML=`<span class="badge ${s.side==='buy'?'b-buy':'b-sell'}">${s.side.toUpperCase()}</span>`; tr.appendChild(side);
+    tr.appendChild(td(s.entry.toFixed(5)));
+    tr.appendChild(td(s.sl.toFixed(5)));
+    tr.appendChild(td(s.tp.toFixed(5)));
+    tr.appendChild(td(s.ob));
+    tr.appendChild(td(s.fvg));
+    tr.appendChild(td(s.size.toFixed(2)));
+    tbody.appendChild(tr);
+  }
+}
+
+function resetAll(){
+  state.H4=state.H1=state.M30=null; renderAll();
+  document.querySelector('#signalsTable tbody').innerHTML='';
+}
+
+['fileH4','fileH1','fileM30'].forEach(id=>{
+  document.getElementById(id).addEventListener('change', async (e)=>{
+    const f=e.target.files?.[0]; if(!f) return;
+    try{
+      const rows=await loadCSV(f);
+      const tf=analyzeTF(rows,id.replace('file',''));
+      state[id.replace('file','')]=tf; renderAll();
+    }catch(err){ alert('Failed to parse '+id+': '+err.message); }
+  })
+});
+
+document.getElementById('runBtn').addEventListener('click', run);
+document.getElementById('resetBtn').addEventListener('click', resetAll);
+</script>
+</body>
+</html>
